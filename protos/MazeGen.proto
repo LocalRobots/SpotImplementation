@@ -1,0 +1,141 @@
+#VRML_SIM R2025a utf8
+# Generates a maze.
+# template language: javascript
+EXTERNPROTO "../protos/SolidBox.proto"
+
+PROTO MazeGen [
+  field SFVec3f translation 0 0 0
+  field SFString mazeString "1111111100000001111111011111110111111101111111011111110111111101"
+  field SFInt32 mazeWidth 8
+  field SFVec2f cellDim 2 2
+  field SFVec2f entrance 1 0
+  field SFVec2f exit 7 6
+  field SFRotation rotation 0 1 0 3.14
+]
+{
+  %<
+    const mazeString = fields.mazeString.value.replace(/\s+/g, '');
+    const mazeWidth = fields.mazeWidth.value;
+    const cellSize = fields.cellDim.value;
+    let columns = []
+    let walls = []
+    if(mazeString.length % mazeWidth !== 0)
+    {
+      console.error("maze string length is not a multiple of maze width!");
+      return;
+    }
+
+    const height = (mazeString.length / mazeWidth);
+    const width = mazeWidth;
+    for(let y = 0; y < height; y++)
+    {
+      for(let x = 0; x < width; x++)
+      {
+        //columns
+        let coords = {x: x * cellSize.x, y: y * cellSize.y, z: 0}
+        columns.push({coordinates: coords});
+
+        const index = y * width + x;
+        const aboveIndex = y > 0 ? (y - 1) * width + x : null;
+        const belowIndex = y < height ? (y + 1) * width + x : null;
+        const leftIndex = x > 0 ? y * width + (x - 1) : 0;
+        const rightIndex = x < width ? y * width + (x + 1) : null;
+
+        const cellValue = mazeString[index];
+
+        if(cellValue === '1')
+        {
+            if(aboveIndex !== null && mazeString[aboveIndex] === '0')
+            {
+               let coords2 = {x: coords.x + (0.5 * cellSize.x), y: coords.y - cellSize.y,z: -0.85};
+               let rot = {x: 0, y: 0, z: 0, a: 1.5708};
+               walls.push({coordinates: coords2, rotation: rot, color: (x / 255.0)});
+            }
+
+            if(belowIndex !== null && mazeString[belowIndex] === '0')
+            {
+              let coords2 = {x: coords.x + (0.5 * cellSize.x), y: coords.y ,z: -0.85};
+               let rot = {x: 0, y: 0, z: 0, a: 1.5708};
+               walls.push({coordinates: coords2, rotation: rot, color: (x / 255.0)});
+            }
+
+            if(leftIndex !== null && mazeString[leftIndex] === '0')
+            {
+               let coords2 = {x: coords.x , y: coords.y + (0.5 * -cellSize.y), z: -0.85};
+               let rot = {x: 0, y: 0, z: 0, a: 0};
+               walls.push({coordinates: coords2, rotation: rot, color: (y / 255.0)});
+            }
+
+            if(rightIndex !== null && mazeString[rightIndex] === '0')
+            {
+               let coords2 = {x: coords.x + cellSize.x, y: coords.y + (0.5 * -cellSize.y),z: -0.85};
+               let rot = {x: 0, y: 0, z: 0, a: 0};
+               walls.push({coordinates: coords2, rotation: rot, color: (y / 255.0)});
+            }
+        }
+      
+      }
+    }
+  >%
+  Transform {
+    translation IS translation
+    rotation IS rotation
+    children [
+      %< for (let i = 0; i < columns.length; i++) { >%
+        Solid {
+          name "column %<= i >%"
+          translation %<= columns[i].coordinates.x >% %<= columns[i].coordinates.y >% %<= columns[i].coordinates.z >%
+          rotation 0 1 0 3.14
+          children [
+            Transform {
+              scale 0.01 0.01 0.01
+              children [
+                Shape {
+                  appearance PBRAppearance {
+                    roughness 1
+                    metalness 0
+                }
+                geometry Mesh {
+                  url [
+                    "meshes/mazestick.obj"
+            ]
+          }
+        }
+              ]
+            }
+          ]
+        }
+    %< } >%
+
+
+      %< for (let i = 0; i < walls.length; i++) { >%
+        SolidBox {
+          name "Wall %<= i >%"
+          translation %<= walls[i].coordinates.x >% %<= walls[i].coordinates.y >% %<= walls[i].coordinates.z >%
+          rotation %<= walls[i].rotation.x >% %<= walls[i].rotation.y >% %<= walls[i].rotation.z >% %<= walls[i].rotation.a >%
+          size 0.02 %<= fields.cellDim.value.x >% %<= fields.cellDim.value.y >%
+          appearance PBRAppearance {
+            baseColor 0.85 0.85 0.85
+            roughness 0.5
+            metalness 0
+          }
+        }
+
+        SolidBox {
+          name "Node %<= walls[i].color >% %<= i >%"
+          translation %<= walls[i].coordinates.x >% %<= walls[i].coordinates.y >% %<= walls[i].coordinates.z >%
+          size 0.2 0.2 0.2
+          appearance PBRAppearance {
+            baseColor 1 1 1
+            roughness 0.5
+            metalness 0
+          }
+          recognitionColors [
+            %<= walls[i].color >% 0 0
+          ]
+        }
+      %< } >%
+    ]
+  }
+ 
+}
